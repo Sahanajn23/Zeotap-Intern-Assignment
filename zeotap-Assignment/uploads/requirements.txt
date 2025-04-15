@@ -1,0 +1,6 @@
+Flask==2.2.5
+clickhouse-connect==0.6.6
+pandas==2.1.3
+prompts.txt
+pgsql
+Prompt: Generate a Flask app that connects to ClickHouse using JWT, supports reading/writing CSV files, allows column selection via UI, and returns the number of records ingested/exported.

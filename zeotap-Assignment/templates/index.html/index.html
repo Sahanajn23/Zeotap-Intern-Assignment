@@ -1,0 +1,130 @@
+html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ClickHouse ↔ Flat File Ingestion Tool</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h1>Zeotap - Data Ingestion Tool</h1>
+
+    <div class="section">
+        <h2>ClickHouse Connection</h2>
+        <input placeholder="Host" id="host">
+        <input placeholder="Port" id="port" type="number">
+        <input placeholder="Database" id="database">
+        <input placeholder="User" id="username">
+        <input placeholder="JWT Token" id="jwt">
+        <button onclick="connect()">Connect</button>
+        <div id="connect-status"></div>
+    </div>
+
+    <div class="section" id="table-section" style="display:none;">
+        <h2>Select Table</h2>
+        <select id="tableSelect" onchange="loadColumns()"></select>
+    </div>
+
+    <div class="section" id="columns-section" style="display:none;">
+        <h2>Select Columns</h2>
+        <form id="columnForm">
+            <div id="columnsContainer"></div>
+        </form>
+        <button onclick="exportData()">Export to CSV</button>
+        <hr>
+        <h3>Import CSV</h3>
+        <input type="file" id="csvFile">
+        <button onclick="importData()">Import</button>
+        <div id="import-status"></div>
+    </div>
+
+    <script>
+        let selectedTable = '';
+
+        async function connect() {
+            const payload = {
+                host: document.getElementById('host').value,
+                port: parseInt(document.getElementById('port').value),
+                database: document.getElementById('database').value,
+                username: document.getElementById('username').value,
+                jwt: document.getElementById('jwt').value
+            };
+            const res = await fetch('/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                document.getElementById('connect-status').innerText = 'Connected!';
+                const select = document.getElementById('tableSelect');
+                data.tables.forEach(table => {
+                    const option = document.createElement('option');
+                    option.value = table;
+                    option.textContent = table;
+                    select.appendChild(option);
+                });
+                document.getElementById('table-section').style.display = 'block';
+            } else {
+                document.getElementById('connect-status').innerText = data.message;
+            }
+        }
+
+        async function loadColumns() {
+            selectedTable = document.getElementById('tableSelect').value;
+            const res = await fetch('/get_columns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ table: selectedTable })
+            });
+            const data = await res.json();
+            const container = document.getElementById('columnsContainer');
+            container.innerHTML = '';
+            if (data.status === 'success') {
+                data.columns.forEach(col => {
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.name = 'columns[]';
+                    checkbox.value = col;
+                    checkbox.checked = true;
+                    container.appendChild(checkbox);
+                    container.appendChild(document.createTextNode(col));
+                    container.appendChild(document.createElement('br'));
+                });
+                document.getElementById('columns-section').style.display = 'block';
+            }
+        }
+
+        async function exportData() {
+            const form = new FormData(document.getElementById('columnForm'));
+            form.append('table', selectedTable);
+            const res = await fetch('/export', {
+                method: 'POST',
+                body: form
+            });
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = selectedTable + '.csv';
+            a.click();
+        }
+
+        async function importData() {
+            const form = new FormData();
+            form.append('file', document.getElementById('csvFile').files[0]);
+            form.append('table', selectedTable);
+            document.querySelectorAll('input[name="columns[]"]:checked').forEach(input => {
+                form.append('columns[]', input.value);
+            });
+            const res = await fetch('/import', {
+                method: 'POST',
+                body: form
+            });
+            const data = await res.json();
+            document.getElementById('import-status').innerText =
+                data.status === 'success' ? `Imported ${data.records} records.` : data.message;
+        }
+    </script>
+</body>
+</html>

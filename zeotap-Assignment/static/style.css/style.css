@@ -1,0 +1,13 @@
+css
+body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+.section {
+    margin-top: 30px;
+    padding: 15px;
+    border: 1px solid #ccc;
+}
+h1, h2 {
+    color: #333;
+}
